@@ -2,11 +2,41 @@
 {{- $input := .Inner -}}
 
 <div class="bd-example">
-{{- $input -}}
+  {{- $input -}}
 </div>
 
-{{- $input_filtered := (replaceRE `<svg (class="bd-placeholder-img[\s\w-]+")[\w\W]+</svg>\n` `<img src="..." $1 alt="...">` $input) -}}
-{{- $input_filtered := (replaceRE `class="(bd-placeholder-img(-lg )? ?)*` `class="` $input_filtered) -}}
-{{- $input_filtered := (replace $input_filtered ` class=""` "") -}}
+{{/*
+This doesn't work for some reason
+if in $input `<svg class="bd-placeholder-img`
+*/}}
 
-{{ highlight (trim $input_filtered "\n") $lang "" }}
+{{- if gt (len (findRE `<svg class="bd-placeholder-img` $input)) 0 -}}
+  {{- $modified_content := replace $input `<svg class="bd-placeholder-img` `✂️<svg class="bd-placeholder-img` -}}
+  {{- $modified_content = split (replace $modified_content "</svg>" "</svg>✂️") "✂️" -}}
+
+  {{- $image_class := "" -}}
+
+  {{- if gt (len (findRE `<svg class="bd-placeholder-img ` $input)) 0 -}}
+    {{- $image_class = replace $input "bd-placeholder-img " "bd-placeholder-img ✂️ " -}}
+    {{- $image_class = split (replace $image_class `" width="` `✂️" width="`) "✂️" -}}
+    {{- $image_class = replace (index $image_class 1) "bd-placeholder-img-lg" "" -}}
+    {{- $image_class = trim $image_class " " -}}
+  {{- end -}}
+
+  {{- range $i, $content_chunk := $modified_content -}}
+    {{- if gt (len (findRE `<svg class="bd-placeholder-img` $content_chunk)) 0 -}}
+      {{- $img_placeholder := `<img src="..." alt="...">` -}}
+
+      {{- if $image_class -}}
+        {{- $img_placeholder = printf `<img src="..." class="%s" alt="...">` $image_class -}}
+      {{- end -}}
+
+      {{- highlight (trim $img_placeholder "\n") $lang "" -}}
+    {{- else -}}
+      {{- highlight (trim $content_chunk "\n") $lang "" -}}
+    {{- end -}}
+  {{- end -}}
+
+{{- else -}}
+  {{- highlight (trim $input "\n") $lang "" -}}
+{{- end -}}
